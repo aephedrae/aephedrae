@@ -13,6 +13,9 @@ export default defineConfig({
         }),
     ],
     clearScreen: false,
+    server: {
+        allowedHosts: true,
+    },
     build: {
         outDir: "dist",
         minify: true,

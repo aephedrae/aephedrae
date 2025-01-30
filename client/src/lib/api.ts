@@ -1,6 +1,6 @@
 import { type UUID, type Character } from "@elizaos/core";
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "https://user114288589-wotoyi4c.tunnel.vk-apps.com/";
 
 const fetcher = async ({
     url,
@@ -102,4 +102,18 @@ export const apiClient = {
             body: formData,
         });
     },
+    saveCharacter: (character: Character) => {
+        fetcher({
+            url: "/characters",
+            method: "POST",
+            body: character,
+        });
+    },
+
+    restartAgent: (characterId: string, character: Character) =>
+        fetcher({
+            url: "/restart-agent",
+            method: "POST",
+            body: { characterId, character },
+        }),
 };

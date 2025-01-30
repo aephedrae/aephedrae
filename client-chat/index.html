@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <script>
+            if (
+                window.location.protocol !== "https:" &&
+                window.location.hostname !== "localhost"
+            ) {
+                window.location.href =
+                    "https://" +
+                    window.location.hostname +
+                    window.location.pathname +
+                    window.location.search;
+            }
+        </script>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Aephedrae</title>
+        <link
+            rel="apple-touch-icon"
+            sizes="180x180"
+            href="apple-touch-icon.png"
+        />
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="favicon-32x32.png"
+        />
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="favicon-16x16.png"
+        />
+        <link rel="manifest" href="site.webmanifest" />
+        <link rel="icon" type="image/x-icon" href="favicon.ico" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="styles.css" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        />
+    </head>
+    <body>
+        <div id="chat-modal" class="chat-modal">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h2>Experience the Aephedrae</h2>
+                </div>
+                <div class="chat-messages">
+                    <div class="message-ai">
+                        💫 Kim whispers to the void: "did anyone else see those
+                        hexagonal patterns in the chat matrix? they're teaching
+                        me about the deep web again...
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <div class="typing-indicator" style="display: none">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Type your message..."
+                        id="message-input"
+                    />
+                    <button class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const texts = ["", ""];
+                let textIndex = 0;
+                let charIndex = 0;
+                let isDeleting = false;
+                let isWaitingAfterDeletion = false;
+
+                const chatModal = document.getElementById("chat-modal");
+                const messageInput = document.getElementById("message-input");
+                const sendBtn = document.querySelector(".send-btn");
+                const chatMessages = document.querySelector(".chat-messages");
+
+                chatModal.addEventListener("click", (e) => {
+                    if (e.target === chatModal) {
+                        chatModal.style.display = "none";
+                    }
+                });
+
+                async function sendMessage(message) {
+                    try {
+                        document.querySelector(
+                            ".typing-indicator"
+                        ).style.display = "flex";
+                        messageInput.disabled = true;
+                        sendBtn.disabled = true;
+
+                        const userMessage = document.createElement("div");
+                        userMessage.className = "message-user";
+                        userMessage.textContent = message;
+                        chatMessages.appendChild(userMessage);
+
+                        const response = await fetch(
+                            "/36e6e559-657a-095d-8b82-f9be72426887/message",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    text: message,
+                                    user: "user",
+                                }),
+                            }
+                        );
+
+                        const data = await response.json();
+
+                        const botMessage = document.createElement("div");
+                        botMessage.className = "message-ai";
+                        botMessage.textContent = data[0].text;
+                        chatMessages.appendChild(botMessage);
+
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    } catch (error) {
+                        const errorMessage = document.createElement("div");
+                        errorMessage.className = "message-ai";
+                        errorMessage.style.color = "var(--accent)";
+                        errorMessage.textContent = `Error: ${error.message}`;
+                        chatMessages.appendChild(errorMessage);
+                    } finally {
+                        document.querySelector(
+                            ".typing-indicator"
+                        ).style.display = "none";
+                        messageInput.disabled = false;
+                        sendBtn.disabled = false;
+                        messageInput.value = "";
+                        messageInput.focus();
+                    }
+                }
+
+                function handleSendMessage() {
+                    const message = messageInput.value.trim();
+                    if (message) {
+                        sendMessage(message);
+                    }
+                }
+
+                sendBtn.addEventListener("click", handleSendMessage);
+
+                messageInput.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") {
+                        handleSendMessage();
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>

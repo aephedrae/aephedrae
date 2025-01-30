@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            window.location.href = 'https://' + window.location.hostname + window.location.pathname + window.location.search;
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Format Generator</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="generator.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="background-grid"></div>
+    <div class="split-container">
+        <div class="generator-section">
+            <div class="title-container">
+                <h1></h1>
+            </div>
+            
+            <div class="generator-content">
+                <div class="agents-accordion">
+                </div>
+                
+                <button class="generate-btn" onclick="copyFormat()">Copy Format</button>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <div class="info-content">
+                <h2>Easily generate your roles.py</h2>
+                <p>This tool helps you create custom agent configurations for your QUARM setup in the correct format. Each agent can be configured with:</p>
+                <ul>
+                    <li>Custom name and role</li>
+                    <li>Specific system instructions</li>
+                    <li>Adjustable parameters</li>
+                </ul>
+                <p>The generated format is compatible with the QUARM swarm intelligence system. Changing the actual names of the agents may require you to also change the names in agents/swarm.py. It's recommended to keep the triage and synthesizer the same as in the default roles.py file.</p>
+                
+                <a href="https://github.com/QuarmFW/Quarm" class="github-btn">
+                    <i class="fab fa-github"></i>
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const typingText = document.querySelector('.generator-section h1');
+            const texts = ['Agent Format Generator', 'Easily generate your roles'];
+            let textIndex = 0;
+            let charIndex = 0;
+            let isDeleting = false;
+            let isWaitingAfterDeletion = false;
+            
+            function typeEffect() {
+                const currentText = texts[textIndex];
+                
+                if (isWaitingAfterDeletion) {
+                    setTimeout(() => {
+                        isWaitingAfterDeletion = false;
+                        textIndex = (textIndex + 1) % texts.length;
+                        typeEffect();
+                    }, 1000);
+                    return;
+                }
+                
+                if (isDeleting) {
+                    typingText.textContent = currentText.substring(0, charIndex - 1);
+                    charIndex--;
+                    
+                    if (charIndex === 0) {
+                        isDeleting = false;
+                        isWaitingAfterDeletion = true;
+                    }
+                } else {
+                    typingText.textContent = currentText.substring(0, charIndex + 1);
+                    charIndex++;
+                    
+                    if (charIndex === currentText.length) {
+                        setTimeout(() => {
+                            isDeleting = true;
+                        }, 2000);
+                    }
+                }
+                
+                setTimeout(typeEffect, isDeleting ? 100 : 200);
+            }
+            
+            typeEffect();
+        });
+
+        const agentTypes = [
+            'triage', 'interpreter', 'researcher', 
+            'critic', 'creative', 'synthesizer'
+        ];
+
+        function createAgentAccordion(type) {
+            return `
+                <div class="accordion-item">
+                    <button class="accordion-header" onclick="toggleAccordion(this)">
+                        <i class="fas fa-robot"></i>
+                        <span>${type.charAt(0).toUpperCase() + type.slice(1)} Agent</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-inner">
+                            <div class="form-group">
+                                <input type="text" id="${type}_name" placeholder="Agent Name">
+                            </div>
+                            <div class="form-group">
+                                <textarea id="${type}_system" placeholder="System Instructions"></textarea>
+                            </div>
+                            <div class="parameters" id="${type}_parameters">
+                                <!-- Parameters will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addParameter(agentType, paramIndex) {
+            const paramContainer = document.createElement('div');
+            paramContainer.className = 'parameter-row';
+            paramContainer.innerHTML = `
+                <input type="text" class="param-name" placeholder="Parameter name" 
+                       id="${agentType}_param_${paramIndex}_name">
+                <div class="slider-container">
+                    <input type="range" 
+                           id="${agentType}_param_${paramIndex}_default"
+                           min="0" max="100" value="70"
+                           oninput="updateSliderValue(this)">
+                    <span class="slider-value">70</span>
+                </div>
+                <input type="text" class="param-desc" placeholder="Description" 
+                       id="${agentType}_param_${paramIndex}_desc">
+            `;
+            document.getElementById(`${agentType}_parameters`).appendChild(paramContainer);
+        }
+
+        function toggleAccordion(header) {
+            const content = header.nextElementSibling;
+            const allContents = document.querySelectorAll('.accordion-content');
+            const allHeaders = document.querySelectorAll('.accordion-header');
+            
+            allContents.forEach(item => {
+                if (item !== content) {
+                    item.classList.remove('active');
+                    item.style.height = '0';
+                }
+            });
+            
+            allHeaders.forEach(item => {
+                if (item !== header) {
+                    item.classList.remove('active');
+                }
+            });
+            
+            if (!header.classList.contains('active')) {
+                header.classList.add('active');
+                content.classList.add('active');
+                content.style.height = content.scrollHeight + 'px';
+            } else {
+                header.classList.remove('active');
+                content.classList.remove('active');
+                content.style.height = '0';
+            }
+        }
+
+        function updateSliderValue(slider) {
+            const valueDisplay = slider.nextElementSibling;
+            valueDisplay.textContent = slider.value;
+            valueDisplay.classList.add('updating');
+            setTimeout(() => {
+                valueDisplay.classList.remove('updating');
+            }, 150);
+        }
+
+        window.onload = function() {
+            const accordionContainer = document.querySelector('.agents-accordion');
+            agentTypes.forEach(type => {
+                accordionContainer.innerHTML += createAgentAccordion(type);
+                for(let i = 0; i < 3; i++) {
+                    addParameter(type, i);
+                }
+            });
+        }
+
+        function copyFormat() {
+            let format = 'AGENT_ROLES = {\n';
+            
+            agentTypes.forEach(type => {
+                format += `    "${type}": {\n`;
+                format += `        "name": "${document.getElementById(type + '_name').value}",\n`;
+                format += `        "system": """${document.getElementById(type + '_system').value}""",\n`;
+                
+                format += '        "parameters": {\n';
+                const paramContainer = document.getElementById(`${type}_parameters`);
+                const params = [];
+                
+                for(let i = 0; i < 3; i++) {
+                    const name = document.getElementById(`${type}_param_${i}_name`).value;
+                    const defaultVal = document.getElementById(`${type}_param_${i}_default`).value;
+                    const desc = document.getElementById(`${type}_param_${i}_desc`).value;
+                    
+                    if(name) {
+                        params.push(`            "${name}": {\n` +
+                                  `                "default": ${defaultVal || 70},\n` +
+                                  `                "min": 0,\n` +
+                                  `                "max": 100,\n` +
+                                  `                "description": "${desc}"\n` +
+                                  '            }');
+                    }
+                }
+                
+                format += params.join(',\n') + '\n        }\n    }';
+                
+                if(type !== agentTypes[agentTypes.length - 1]) {
+                    format += ',';
+                }
+                format += '\n';
+            });
+            
+            format += '}';
+            
+            navigator.clipboard.writeText(format).then(() => {
+                const btn = document.querySelector('.generate-btn');
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = 'Copy Format';
+                }, 2000);
+            });
+        }
+    </script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const grid = document.querySelector('.background-grid');
+                let position = 0;
+                
+                function moveGrid() {
+                    position = (position - 0.05) % 20;
+                    grid.style.backgroundPosition = `${position}px ${position}px`;
+                    requestAnimationFrame(moveGrid);
+                }
+                
+                moveGrid();
+            });
+            </script>
+</body>
+</html> 

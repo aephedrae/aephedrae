@@ -15,6 +15,8 @@ import { TeeLogQuery, TeeLogService } from "@elizaos/plugin-tee-log";
 import { REST, Routes } from "discord.js";
 import { DirectClient } from ".";
 import { validateUuid } from "@elizaos/core";
+import path from "node:path";
+import fs from "node:fs";
 
 interface UUIDParams {
     agentId: UUID;
@@ -65,6 +67,21 @@ export function createApiRouter(
     router.get("/", (req, res) => {
         res.send("Welcome, this is the REST API!");
     });
+
+    router.get("/chat", (req, res) => {
+        console.log(
+            "Serving chat client from:",
+            path.join(process.cwd(), "..", "client-chat")
+        );
+        res.sendFile(
+            path.join(process.cwd(), "..", "client-chat", "index.html")
+        );
+    });
+
+    router.use(
+        "/",
+        express.static(path.join(process.cwd(), "..", "client-chat"))
+    );
 
     router.get("/hello", (req, res) => {
         res.json({ message: "Hello World!" });
@@ -243,18 +260,20 @@ export function createApiRouter(
 
             for (const agentRuntime of agents.values()) {
                 const teeLogService = agentRuntime
-                    .getService<TeeLogService>(
-                    ServiceType.TEE_LOG
-                )
-                .getInstance();
+                    .getService<TeeLogService>(ServiceType.TEE_LOG)
+                    .getInstance();
 
                 const agents = await teeLogService.getAllAgents();
-                allAgents.push(...agents)
+                allAgents.push(...agents);
             }
 
             const runtime: AgentRuntime = agents.values().next().value;
-            const teeLogService = runtime.getService<TeeLogService>(ServiceType.TEE_LOG).getInstance();
-            const attestation = await teeLogService.generateAttestation(JSON.stringify(allAgents));
+            const teeLogService = runtime
+                .getService<TeeLogService>(ServiceType.TEE_LOG)
+                .getInstance();
+            const attestation = await teeLogService.generateAttestation(
+                JSON.stringify(allAgents)
+            );
             res.json({ agents: allAgents, attestation: attestation });
         } catch (error) {
             elizaLogger.error("Failed to get TEE agents:", error);
@@ -274,13 +293,13 @@ export function createApiRouter(
             }
 
             const teeLogService = agentRuntime
-                .getService<TeeLogService>(
-                ServiceType.TEE_LOG
-            )
-            .getInstance();
+                .getService<TeeLogService>(ServiceType.TEE_LOG)
+                .getInstance();
 
             const teeAgent = await teeLogService.getAgent(agentId);
-            const attestation = await teeLogService.generateAttestation(JSON.stringify(teeAgent));
+            const attestation = await teeLogService.generateAttestation(
+                JSON.stringify(teeAgent)
+            );
             res.json({ agent: teeAgent, attestation: attestation });
         } catch (error) {
             elizaLogger.error("Failed to get TEE agent:", error);
@@ -309,12 +328,16 @@ export function createApiRouter(
                 };
                 const agentRuntime: AgentRuntime = agents.values().next().value;
                 const teeLogService = agentRuntime
-                    .getService<TeeLogService>(
-                        ServiceType.TEE_LOG
-                    )
+                    .getService<TeeLogService>(ServiceType.TEE_LOG)
                     .getInstance();
-                const pageQuery = await teeLogService.getLogs(teeLogQuery, page, pageSize);
-                const attestation = await teeLogService.generateAttestation(JSON.stringify(pageQuery));
+                const pageQuery = await teeLogService.getLogs(
+                    teeLogQuery,
+                    page,
+                    pageSize
+                );
+                const attestation = await teeLogService.generateAttestation(
+                    JSON.stringify(pageQuery)
+                );
                 res.json({
                     logs: pageQuery,
                     attestation: attestation,
@@ -327,6 +350,107 @@ export function createApiRouter(
             }
         }
     );
+
+    router.get("/characters", async (req, res) => {
+        try {
+            const uploadDir = path.join(process.cwd(), "data", "characters");
+            await fs.promises.mkdir(uploadDir, { recursive: true });
+            const files = await fs.promises.readdir(uploadDir);
+            const characters = await Promise.all(
+                files.map(async (file) => {
+                    const content = await fs.promises.readFile(
+                        path.join(uploadDir, file),
+                        "utf-8"
+                    );
+                    return JSON.parse(content);
+                })
+            );
+            res.json(characters);
+        } catch (error) {
+            elizaLogger.error(`Error loading characters: ${error}`);
+            res.status(500).json({ error: "Failed to load characters" });
+        }
+    });
+
+    router.post("/characters", async (req, res) => {
+        try {
+            const character = req.body;
+            validateCharacterConfig(character);
+
+            const filename = `${character.name.toLowerCase().replace(/\s+/g, "_")}.character.json`;
+            const uploadDir = path.join(process.cwd(), "..", "characters");
+
+            await fs.promises.mkdir(uploadDir, { recursive: true });
+            await fs.promises.writeFile(
+                path.join(uploadDir, filename),
+                JSON.stringify(character, null, 2)
+            );
+
+            res.json({ message: "Character saved successfully" });
+        } catch (error) {
+            elizaLogger.error(`Error saving character: ${error}`);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.post("/restart-agent", async (req, res) => {
+        try {
+            const { characterId, character } = req.body;
+            elizaLogger.info(
+                "Received character config:",
+                JSON.stringify(character, null, 2)
+            );
+
+            // Валидация конфигурации
+            try {
+                validateCharacterConfig(character);
+            } catch (validationError) {
+                elizaLogger.error(
+                    "Character validation failed:",
+                    validationError.message
+                );
+                throw new Error(
+                    `Character validation failed: ${validationError.message}`
+                );
+            }
+
+            // Stop existing agent if running
+            const existingAgent = Array.from(agents.values()).find(
+                (agent) =>
+                    agent.character.name.toLowerCase() ===
+                    characterId.toLowerCase()
+            );
+
+            if (existingAgent) {
+                elizaLogger.info(
+                    `Stopping existing agent: ${existingAgent.character.name}`
+                );
+                existingAgent.stop();
+                directClient.unregisterAgent(existingAgent);
+            }
+
+            try {
+                // Запускаем нового агента с предоставленной конфигурацией
+                const agent = await directClient.startAgent(character);
+                elizaLogger.info(
+                    `Agent restarted successfully: ${character.name}`
+                );
+                res.json({
+                    message: "Agent restarted successfully",
+                    agent: {
+                        id: agent.agentId,
+                        name: agent.character.name,
+                    },
+                });
+            } catch (e) {
+                elizaLogger.error("Failed to start agent:", e);
+                throw new Error(`Failed to start agent: ${e.message}`);
+            }
+        } catch (error) {
+            elizaLogger.error("Error restarting agent:", error.message);
+            res.status(500).json({ error: error.message });
+        }
+    });
 
     return router;
 }
